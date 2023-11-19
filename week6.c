@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
+#include <dirent.h>
 
 struct stat informatii;
 
@@ -39,7 +40,7 @@ int openFile(char *name){
 }
 
 int createFile(char *name){
-    int fout=creat(name, S_IRUSR | S_IWUSR | S_IXUSR);
+    int fout=open(name, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IXUSR);
     if(fout==-1){
         perror("Nu s-a putut crea fisierul.\n");
         exit(-1);
@@ -223,24 +224,14 @@ type_of_file typeOfFile(mode_t mode){
     
 }
 
-int main(int argc,char *argv[]){
-    testArgs(argc,argv);
-    int stat_out=lstat(argv[1],&informatii);
-    if(stat_out==-1)
-    {
-        perror("S-a produs o eroare la aflarea atributelor.");
-        exit(-1);
-    }
-
-    type_of_file type = typeOfFile(informatii.st_mode);
-
+void writeStatisticsByType(type_of_file type, char *name){
     switch (type)
     {
     case REGULAR:{
-            int fileDescriptorIn = openFile(argv[1]);
             int fileDescriptorOut = createFile("statistica.txt");
-            writeName(fileDescriptorOut, argv[1],"fisier");
-            if(checkBMPFile(argv[1])==1) {
+            int fileDescriptorIn = openFile(name);
+            writeName(fileDescriptorOut, name,"fisier");
+            if(checkBMPFile(name)==1){
                 writeWidth(fileDescriptorIn, fileDescriptorOut);
                 writeHeight(fileDescriptorIn, fileDescriptorOut);
             }
@@ -260,10 +251,10 @@ int main(int argc,char *argv[]){
                 exit(-1);
             }
             break;
-    }
+        }
     case DIRECTOR:{
             int fileDescriptorOut = createFile("statistica.txt");
-            writeName(fileDescriptorOut, argv[1],"director");
+            writeName(fileDescriptorOut, name,"director");
             writeUserId(fileDescriptorOut, informatii.st_uid);
             writeUserAccessRights(fileDescriptorOut,informatii.st_mode,"");
             writeGroupAccessRights(fileDescriptorOut,informatii.st_mode,"");
@@ -276,12 +267,12 @@ int main(int argc,char *argv[]){
     }
     case LINK:{
             int fileDescriptorOut = createFile("statistica.txt");
-            writeName(fileDescriptorOut, argv[1],"legatura");
+            writeName(fileDescriptorOut, name,"legatura");
             struct stat informatiiFisierTarget;
-            int stat_link = stat(argv[1],&informatiiFisierTarget);
+            int stat_link = stat(name,&informatiiFisierTarget);
             if(stat_link==-1)
             {
-                perror("S-a produs o eroare la aflarea atributelor legaturii.");
+                perror("S-a produs o eroare la aflarea atributelor fisierului.");
                 exit(-1);
             }
             writeSize(fileDescriptorOut,informatii.st_size," legatura");
@@ -300,5 +291,57 @@ int main(int argc,char *argv[]){
             break;
     }
     }
+}
+
+DIR *openDirector(char *path){
+    DIR *director;
+    if((director=opendir(path))==NULL){
+        perror("Nu s-a putut deschide directorul.\n");
+        exit(-1);
+    }
+    return director;
+}
+
+void getAtributes(char *name){
+    int stat_out=lstat(name,&informatii);
+    if(stat_out==-1)
+    {
+        perror("S-a produs o eroare la aflarea atributelor.");
+        exit(-1);
+    }
+}
+
+void readDirector(DIR *director,char *name){
+    struct dirent *informatiiDirector;
+    while ((informatiiDirector=readdir(director))!=NULL)
+    {
+        printf("%s\n",informatiiDirector->d_name);
+        char path[1000];
+        sprintf(path,"%s/%s",name,informatiiDirector->d_name);
+        getAtributes(path);
+        type_of_file type = typeOfFile(informatii.st_mode);
+        writeStatisticsByType(type,informatiiDirector->d_name);
+    }
+    
+}
+
+int main(int argc,char *argv[]){
+    testArgs(argc,argv);
+    
+    DIR *director = openDirector(argv[1]);
+
+    //getAtributes(argv[1]);
+    
+    //type_of_file type = typeOfFile(informatii.st_mode);
+    //writeStatisticsByType(type,argv[1]);
+    readDirector(director,argv[1]);
+    /*int stat_out=lstat(argv[1],&informatii);
+    if(stat_out==-1)
+    {
+        perror("S-a produs o eroare la aflarea atributelor.");
+        exit(-1);
+    }*/
+
+    //type_of_file type = typeOfFile(informatii.st_mode);
     return 0;
 }

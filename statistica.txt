@@ -1,10 +1,10 @@
-nume fisier: imagine.bmp
-inaltime: 1920
-lungime: 1280
-dimensiune fisier: 7372938
+okme director: ..
 identificatorul utilizatorului: 1000
-timpul ultimei modificari: 10.11.2023
-contorul de legaturi: 2
-drepturi de acces user: rw-
+drepturi de acces user: rwx
+drepturi de acces grup: rwx
+drepturi de acces altii: r-x
+: rwx
+drepturi de acces altii legatura: rwx
+turi de acces user: rw-
 drepturi de acces grup: rw-
 drepturi de acces altii: r--
