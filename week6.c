@@ -40,7 +40,7 @@ int openFile(char *name){
 }
 
 int createFile(char *name){
-    int fout=open(name, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IXUSR);
+    int fout=open(name, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IXUSR);
     if(fout==-1){
         perror("Nu s-a putut crea fisierul.\n");
         exit(-1);
@@ -224,12 +224,21 @@ type_of_file typeOfFile(mode_t mode){
     
 }
 
+void writeNewLine(int fd) {
+    if(write(fd, "\n", 1) == -1) {
+        perror("Nu s-a putut scrie newline.\n");
+        exit(-1);
+    }
+}
+
 void writeStatisticsByType(type_of_file type, char *name){
     switch (type)
     {
     case REGULAR:{
+            puts("ENTER REG");
             int fileDescriptorOut = createFile("statistica.txt");
             int fileDescriptorIn = openFile(name);
+            writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"fisier");
             if(checkBMPFile(name)==1){
                 writeWidth(fileDescriptorIn, fileDescriptorOut);
@@ -253,7 +262,9 @@ void writeStatisticsByType(type_of_file type, char *name){
             break;
         }
     case DIRECTOR:{
+            puts("ENTER DIR");
             int fileDescriptorOut = createFile("statistica.txt");
+            writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"director");
             writeUserId(fileDescriptorOut, informatii.st_uid);
             writeUserAccessRights(fileDescriptorOut,informatii.st_mode,"");
@@ -266,7 +277,9 @@ void writeStatisticsByType(type_of_file type, char *name){
             break;
     }
     case LINK:{
+            puts("ENTER LINK");
             int fileDescriptorOut = createFile("statistica.txt");
+            writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"legatura");
             struct stat informatiiFisierTarget;
             int stat_link = stat(name,&informatiiFisierTarget);
@@ -311,13 +324,27 @@ void getAtributes(char *name){
     }
 }
 
+void resetFile() {
+    int fdStat = 0;
+    if((fdStat = creat("statistica.txt", S_IRUSR | S_IWUSR | S_IXUSR)) == -1) {
+        perror("Fisierul nu a putut fi resetat.\n");
+        exit(-1);
+    }
+    if(close(fdStat) == -1) {
+        perror("Fisierul nu a putut fi inchis.\n");
+        exit(-1);
+    }
+}
+
 void readDirector(DIR *director,char *name){
     struct dirent *informatiiDirector;
+    resetFile();
     while ((informatiiDirector=readdir(director))!=NULL)
     {
         printf("%s\n",informatiiDirector->d_name);
         char path[1000];
         sprintf(path,"%s/%s",name,informatiiDirector->d_name);
+        printf("Full path %s\n", path);
         getAtributes(path);
         type_of_file type = typeOfFile(informatii.st_mode);
         writeStatisticsByType(type,informatiiDirector->d_name);

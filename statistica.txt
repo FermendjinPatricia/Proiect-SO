@@ -1,10 +1,43 @@
-okme director: ..
+
+nume director: legatura
 identificatorul utilizatorului: 1000
 drepturi de acces user: rwx
 drepturi de acces grup: rwx
 drepturi de acces altii: r-x
-: rwx
+
+nume legatura: link
+dimensiune legatura: 8
+dimensiune fisier: 4096
+drepturi de acces user legatura: rwx
+drepturi de acces grup legatura: rwx
 drepturi de acces altii legatura: rwx
-turi de acces user: rw-
+
+nume director: .
+identificatorul utilizatorului: 1000
+drepturi de acces user: rwx
+drepturi de acces grup: rwx
+drepturi de acces altii: r-x
+
+nume fisier: imagine.bmp
+inaltime: 1920
+lungime: 1280
+dimensiune fisier: 7372938
+identificatorul utilizatorului: 1000
+timpul ultimei modificari: 10.11.2023
+contorul de legaturi: 1
+drepturi de acces user: rw-
 drepturi de acces grup: rw-
 drepturi de acces altii: r--
+
+nume legatura: link2
+dimensiune legatura: 11
+dimensiune fisier: 7372938
+drepturi de acces user legatura: rwx
+drepturi de acces grup legatura: rwx
+drepturi de acces altii legatura: rwx
+
+nume director: ..
+identificatorul utilizatorului: 1000
+drepturi de acces user: rwx
+drepturi de acces grup: rwx
+drepturi de acces altii: r-x
