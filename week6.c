@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <dirent.h>
+#include <sys/wait.h>
 
 struct stat informatii;
 
@@ -16,7 +17,7 @@ typedef enum type_of_file{
 } type_of_file;
 
 void testArgs(int argc, char *argv[]){
-    if (argc != 2){
+    if (argc != 3){
         printf("Usage %s\n",argv[1]);
         exit(-1);
     }
@@ -39,8 +40,10 @@ int openFile(char *name){
     return fin;
 }
 
-int createFile(char *name){
-    int fout=open(name, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IXUSR);
+int createFile(char *name, char *path){
+    char pathBuffer[100];
+    sprintf(pathBuffer,"%s/%s",path,name);
+    int fout=open(pathBuffer, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IXUSR);
     if(fout==-1){
         perror("Nu s-a putut crea fisierul.\n");
         exit(-1);
@@ -231,18 +234,34 @@ void writeNewLine(int fd) {
     }
 }
 
-void writeStatisticsByType(type_of_file type, char *name){
+void resetFile(char *name) {
+    int fdStat = 0;
+    if((fdStat = creat(name, S_IRUSR | S_IWUSR | S_IXUSR)) == -1) {
+        perror("Fisierul nu a putut fi resetat.\n");
+        exit(-1);
+    }
+    if(close(fdStat) == -1) {
+        perror("Fisierul nu a putut fi inchis.\n");
+        exit(-1);
+    }
+}
+
+int writeStatisticsByType(type_of_file type, char *name, char *path){
+    int numberOfLines=0;
     switch (type)
     {
     case REGULAR:{
-            puts("ENTER REG");
-            int fileDescriptorOut = createFile("statistica.txt");
+            char nameOfFile[100];
+            sprintf(nameOfFile,"%s_%s",name,"statistica.txt");
+            int fileDescriptorOut = createFile(nameOfFile,path);
+            //resetFile(nameOfFile);
             int fileDescriptorIn = openFile(name);
             writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"fisier");
             if(checkBMPFile(name)==1){
                 writeWidth(fileDescriptorIn, fileDescriptorOut);
                 writeHeight(fileDescriptorIn, fileDescriptorOut);
+                numberOfLines+=2;
             }
             writeSize(fileDescriptorOut,  informatii.st_size," fisier");
             writeUserId(fileDescriptorOut, informatii.st_uid);
@@ -259,11 +278,14 @@ void writeStatisticsByType(type_of_file type, char *name){
                 perror("Nu s-a putut inchide fisierul.\n");
                 exit(-1);
             }
+            numberOfLines+=9;
             break;
         }
     case DIRECTOR:{
-            puts("ENTER DIR");
-            int fileDescriptorOut = createFile("statistica.txt");
+            char nameOfFile[100];
+            sprintf(nameOfFile,"%s_%s",name,"statistica.txt");
+            int fileDescriptorOut = createFile(nameOfFile,path);
+            //resetFile(nameOfFile);
             writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"director");
             writeUserId(fileDescriptorOut, informatii.st_uid);
@@ -274,11 +296,14 @@ void writeStatisticsByType(type_of_file type, char *name){
                 perror("Nu s-a putut inchide fisierul.\n");
                 exit(-1);
             }
+            numberOfLines+=6;
             break;
     }
     case LINK:{
-            puts("ENTER LINK");
-            int fileDescriptorOut = createFile("statistica.txt");
+            char nameOfFile[100];
+            sprintf(nameOfFile,"%s_%s",name,"statistica.txt");
+            int fileDescriptorOut = createFile(nameOfFile,path);
+            //resetFile(nameOfFile);
             writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"legatura");
             struct stat informatiiFisierTarget;
@@ -297,6 +322,7 @@ void writeStatisticsByType(type_of_file type, char *name){
                 perror("Nu s-a putut inchide fisierul.\n");
                 exit(-1);
             }
+            numberOfLines+=7;
             break;
     }
     default:{
@@ -304,6 +330,7 @@ void writeStatisticsByType(type_of_file type, char *name){
             break;
     }
     }
+    return numberOfLines;
 }
 
 DIR *openDirector(char *path){
@@ -324,30 +351,39 @@ void getAtributes(char *name){
     }
 }
 
-void resetFile() {
-    int fdStat = 0;
-    if((fdStat = creat("statistica.txt", S_IRUSR | S_IWUSR | S_IXUSR)) == -1) {
-        perror("Fisierul nu a putut fi resetat.\n");
-        exit(-1);
-    }
-    if(close(fdStat) == -1) {
-        perror("Fisierul nu a putut fi inchis.\n");
-        exit(-1);
-    }
-}
-
-void readDirector(DIR *director,char *name){
+void readDirector(DIR *director,char *name, char *pathOut){
     struct dirent *informatiiDirector;
-    resetFile();
     while ((informatiiDirector=readdir(director))!=NULL)
     {
-        printf("%s\n",informatiiDirector->d_name);
+        pid_t pid;
+        if((pid=fork())<0){
+            perror("Eroare");
+            exit(1);
+        }
+        if(pid==0){
+        //printf("%s\n",informatiiDirector->d_name);
         char path[1000];
         sprintf(path,"%s/%s",name,informatiiDirector->d_name);
-        printf("Full path %s\n", path);
+        //printf("Full path %s\n", path);
         getAtributes(path);
         type_of_file type = typeOfFile(informatii.st_mode);
-        writeStatisticsByType(type,informatiiDirector->d_name);
+        int numberOfLinesWritten = writeStatisticsByType(type,informatiiDirector->d_name,pathOut);
+        exit(numberOfLinesWritten);
+        }
+        int status;
+        pid=wait(&status);
+        int cod = WEXITSTATUS(status);
+        printf("S-a incheiat procedul cu pid-ul %d si codul %d.\n",pid,cod);
+        if(checkBMPFile(informatiiDirector->d_name)==1){
+            if((pid=fork())<0){
+                perror("Eroare proces BMP.\n");
+                exit(1);
+            }
+            if(pid==0){
+                //cod bmp
+                exit(0);
+            }
+        }
     }
     
 }
@@ -357,18 +393,7 @@ int main(int argc,char *argv[]){
     
     DIR *director = openDirector(argv[1]);
 
-    //getAtributes(argv[1]);
-    
-    //type_of_file type = typeOfFile(informatii.st_mode);
-    //writeStatisticsByType(type,argv[1]);
-    readDirector(director,argv[1]);
-    /*int stat_out=lstat(argv[1],&informatii);
-    if(stat_out==-1)
-    {
-        perror("S-a produs o eroare la aflarea atributelor.");
-        exit(-1);
-    }*/
+    readDirector(director,argv[1],argv[2]);
 
-    //type_of_file type = typeOfFile(informatii.st_mode);
     return 0;
 }
