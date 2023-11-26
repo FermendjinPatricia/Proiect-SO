@@ -34,7 +34,7 @@ int checkBMPFile(char *name){
 int openFile(char *name){
     int fin=open(name, O_RDONLY);
     if(fin==-1){
-        perror("Nu s-a putut deschide fisierul.\n");
+        printf("Nu s-a putut deschide fisierul cu numele %s\n",name);
         exit(-1);
     }
     return fin;
@@ -310,7 +310,7 @@ int writeStatisticsByType(type_of_file type, char *name, char *path){
             int stat_link = stat(name,&informatiiFisierTarget);
             if(stat_link==-1)
             {
-                perror("S-a produs o eroare la aflarea atributelor fisierului.");
+                printf("S-a produs o eroare la aflarea atributelor fisierului.\n");
                 exit(-1);
             }
             writeSize(fileDescriptorOut,informatii.st_size," legatura");
@@ -346,7 +346,7 @@ void getAtributes(char *name){
     int stat_out=lstat(name,&informatii);
     if(stat_out==-1)
     {
-        perror("S-a produs o eroare la aflarea atributelor.");
+        printf("S-a produs o eroare la aflarea atributelor fisierului:%s.\n",name);
         exit(-1);
     }
 }
@@ -361,10 +361,10 @@ void readDirector(DIR *director,char *name, char *pathOut){
             exit(1);
         }
         if(pid==0){
-        //printf("%s\n",informatiiDirector->d_name);
+        printf("%s\n",informatiiDirector->d_name);
         char path[1000];
         sprintf(path,"%s/%s",name,informatiiDirector->d_name);
-        //printf("Full path %s\n", path);
+        printf("Full path %s\n", path);
         getAtributes(path);
         type_of_file type = typeOfFile(informatii.st_mode);
         int numberOfLinesWritten = writeStatisticsByType(type,informatiiDirector->d_name,pathOut);
@@ -373,17 +373,17 @@ void readDirector(DIR *director,char *name, char *pathOut){
         int status;
         pid=wait(&status);
         int cod = WEXITSTATUS(status);
-        printf("S-a incheiat procedul cu pid-ul %d si codul %d.\n",pid,cod);
-        if(checkBMPFile(informatiiDirector->d_name)==1){
-            if((pid=fork())<0){
-                perror("Eroare proces BMP.\n");
-                exit(1);
-            }
-            if(pid==0){
-                //cod bmp
-                exit(0);
-            }
-        }
+        printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
+        // if(checkBMPFile(informatiiDirector->d_name)==1){
+        //     if((pid=fork())<0){
+        //         perror("Eroare proces BMP.\n");
+        //         exit(1);
+        //     }
+        //     if(pid==0){
+        //         //cod bmp
+        //         exit(0);
+        //     }
+        // }
     }
     
 }
