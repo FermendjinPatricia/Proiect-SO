@@ -4,8 +4,8 @@ inaltime: 640
 lungime: 426
 dimensiune fisier: 818058
 identificatorul utilizatorului: 1000
-timpul ultimei modificari: 25.11.2023
+timpul ultimei modificari: 3.12.2023
 contorul de legaturi: 1
-drepturi de acces user: rwx
-drepturi de acces grup: rwx
-drepturi de acces altii: r-x
+drepturi de acces user: rw-
+drepturi de acces grup: rw-
+drepturi de acces altii: r--

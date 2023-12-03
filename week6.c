@@ -96,39 +96,6 @@ int getFilesHeight(int fileDescriptorIn){
     return height;
 }
 
-int getFilesRedPixel(int fileDescriptorIn){
-    int red;
-    lseek(fileDescriptorIn,54,SEEK_SET);
-    if(read(fileDescriptorIn,&red,1)==-1){
-        perror("Nu s-a realizat corect citirea lungimii.\n");
-        exit(-1);
-    }
-    lseek(fileDescriptorIn,SEEK_SET,0);
-    return red;
-}
-
-int getFilesGreenPixel(int fileDescriptorIn){
-    int green;
-    lseek(fileDescriptorIn,55,SEEK_SET);
-    if(read(fileDescriptorIn,&green,1)==-1){
-        perror("Nu s-a realizat corect citirea lungimii.\n");
-        exit(-1);
-    }
-    lseek(fileDescriptorIn,SEEK_SET,0);
-    return green;
-}
-
-int getFilesBluePixel(int fileDescriptorIn){
-    int blue;
-    lseek(fileDescriptorIn,56,SEEK_SET);
-    if(read(fileDescriptorIn,&blue,1)==-1){
-        perror("Nu s-a realizat corect citirea lungimii.\n");
-        exit(-1);
-    }
-    lseek(fileDescriptorIn,SEEK_SET,0);
-    return blue;
-}
-
 int getFilesBitCount(int fileDescriptorIn){
     int bitCount;
     lseek(fileDescriptorIn,28,SEEK_SET);
@@ -136,7 +103,7 @@ int getFilesBitCount(int fileDescriptorIn){
         perror("Nu s-a realizat corect citirea bitCount-ului.\n");
         exit(-1);
     }
-    lseek(fileDescriptorIn,SEEK_SET,0);
+    lseek(fileDescriptorIn,0,SEEK_SET);
     return bitCount;
 }
 
@@ -435,9 +402,9 @@ void rewritePixels(int fileDescriptorIn, int width, int height){
             int bluePixel = getBluePixel(fileDescriptorIn);
             int greyPixel = 0.299*redPixel + 0.587*greenPixel + 0.114*bluePixel;
             lseek(fileDescriptorIn,-3,SEEK_CUR);
-            write(fileDescriptorIn,&greyPixel,sizeof(greyPixel));
-            write(fileDescriptorIn,&greyPixel,sizeof(greyPixel));
-            write(fileDescriptorIn,&greyPixel,sizeof(greyPixel));
+            write(fileDescriptorIn,&greyPixel,1);
+            write(fileDescriptorIn,&greyPixel,1);
+            write(fileDescriptorIn,&greyPixel,1);
         }
     }
     
@@ -480,10 +447,17 @@ void readDirector(DIR *director,char *name, char *pathOut){
                 sprintf(path,"%s/%s",name,informatiiDirector->d_name);
                 printf("Full path %s\n", path);
                 int fileDescriptorIn = openFile(path);
+                //if(getFilesBitCount(fileDescriptorIn)!=24){
+                //    perror("Nu se poate converti aceasta imagine.\n");
+                //    exit(-1);
+                //}
                 int height = getFilesHeight(fileDescriptorIn);
                 int width = getFilesWidth(fileDescriptorIn);
                 rewritePixels(fileDescriptorIn,width,height);
-                
+                if(close(fileDescriptorIn)==-1){
+                    perror("Nu s-a putut inchide fisierul.\n");
+                    exit(-1);
+                }
                 exit(0);
             }
         }
