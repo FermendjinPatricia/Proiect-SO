@@ -1,9 +1,0 @@
-
-nume fisier: director
-dimensiune fisier: 0
-identificatorul utilizatorului: 1000
-timpul ultimei modificari: 20.11.2023
-contorul de legaturi: 1
-drepturi de acces user: rwx
-drepturi de acces grup: ---
-drepturi de acces altii: ---

@@ -32,7 +32,7 @@ int checkBMPFile(char *name){
 }
 
 int openFile(char *name){
-    int fin=open(name, O_RDONLY);
+    int fin=open(name, O_RDONLY | O_WRONLY, S_IRWXU);
     if(fin==-1){
         printf("Nu s-a putut deschide fisierul cu numele %s\n",name);
         exit(-1);
@@ -75,21 +75,69 @@ void writeName(int fileDescriptorOut, char *nume, char *type){
 
 int getFilesWidth(int fileDescriptorIn){
     int width;
-    lseek(fileDescriptorIn,18, SEEK_CUR);
+    lseek(fileDescriptorIn,18, SEEK_SET);
+    printf("fd:%d\n",fileDescriptorIn);
     if(read(fileDescriptorIn, &width, 4)==-1){
         perror("Nu s-a realizat corect citirea inaltimii.\n");
         exit(-1);
     }
+    lseek(fileDescriptorIn,0,SEEK_SET);
     return width;
 }
 
 int getFilesHeight(int fileDescriptorIn){
     int height;
+    lseek(fileDescriptorIn,22, SEEK_SET);
     if(read(fileDescriptorIn,&height,4)==-1){
         perror("Nu s-a realizat corect citirea lungimii.\n");
         exit(-1);
     }
+    lseek(fileDescriptorIn,0,SEEK_SET);
     return height;
+}
+
+int getFilesRedPixel(int fileDescriptorIn){
+    int red;
+    lseek(fileDescriptorIn,54,SEEK_SET);
+    if(read(fileDescriptorIn,&red,1)==-1){
+        perror("Nu s-a realizat corect citirea lungimii.\n");
+        exit(-1);
+    }
+    lseek(fileDescriptorIn,SEEK_SET,0);
+    return red;
+}
+
+int getFilesGreenPixel(int fileDescriptorIn){
+    int green;
+    lseek(fileDescriptorIn,55,SEEK_SET);
+    if(read(fileDescriptorIn,&green,1)==-1){
+        perror("Nu s-a realizat corect citirea lungimii.\n");
+        exit(-1);
+    }
+    lseek(fileDescriptorIn,SEEK_SET,0);
+    return green;
+}
+
+int getFilesBluePixel(int fileDescriptorIn){
+    int blue;
+    lseek(fileDescriptorIn,56,SEEK_SET);
+    if(read(fileDescriptorIn,&blue,1)==-1){
+        perror("Nu s-a realizat corect citirea lungimii.\n");
+        exit(-1);
+    }
+    lseek(fileDescriptorIn,SEEK_SET,0);
+    return blue;
+}
+
+int getFilesBitCount(int fileDescriptorIn){
+    int bitCount;
+    lseek(fileDescriptorIn,28,SEEK_SET);
+    if(read(fileDescriptorIn,&bitCount,2)==-1){
+        perror("Nu s-a realizat corect citirea bitCount-ului.\n");
+        exit(-1);
+    }
+    lseek(fileDescriptorIn,SEEK_SET,0);
+    return bitCount;
 }
 
 void writeWidth(int fileDescriptorIn, int fileDescriptorOut){
@@ -246,16 +294,16 @@ void resetFile(char *name) {
     }
 }
 
-int writeStatisticsByType(type_of_file type, char *name, char *path){
+int writeStatisticsByType(type_of_file type, char *pathIn, char *name, char *pathOut){
     int numberOfLines=0;
     switch (type)
     {
     case REGULAR:{
             char nameOfFile[100];
             sprintf(nameOfFile,"%s_%s",name,"statistica.txt");
-            int fileDescriptorOut = createFile(nameOfFile,path);
+            int fileDescriptorOut = createFile(nameOfFile,pathOut);
             //resetFile(nameOfFile);
-            int fileDescriptorIn = openFile(name);
+            int fileDescriptorIn = openFile(pathIn);
             writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"fisier");
             if(checkBMPFile(name)==1){
@@ -284,7 +332,7 @@ int writeStatisticsByType(type_of_file type, char *name, char *path){
     case DIRECTOR:{
             char nameOfFile[100];
             sprintf(nameOfFile,"%s_%s",name,"statistica.txt");
-            int fileDescriptorOut = createFile(nameOfFile,path);
+            int fileDescriptorOut = createFile(nameOfFile,pathOut);
             //resetFile(nameOfFile);
             writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"director");
@@ -302,15 +350,15 @@ int writeStatisticsByType(type_of_file type, char *name, char *path){
     case LINK:{
             char nameOfFile[100];
             sprintf(nameOfFile,"%s_%s",name,"statistica.txt");
-            int fileDescriptorOut = createFile(nameOfFile,path);
+            int fileDescriptorOut = createFile(nameOfFile,pathOut);
             //resetFile(nameOfFile);
             writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"legatura");
             struct stat informatiiFisierTarget;
-            int stat_link = stat(name,&informatiiFisierTarget);
+            int stat_link = stat(pathIn,&informatiiFisierTarget);
             if(stat_link==-1)
             {
-                printf("S-a produs o eroare la aflarea atributelor fisierului.\n");
+                perror("S-a produs o eroare la aflarea atributelor fisierului.\n");
                 exit(-1);
             }
             writeSize(fileDescriptorOut,informatii.st_size," legatura");
@@ -351,6 +399,50 @@ void getAtributes(char *name){
     }
 }
 
+int getRedPixel(int fileDescriptorIn){
+    int red;
+    if((read(fileDescriptorIn,&red,1))==-1){
+        perror("Nu s-a putut citi pixelul rosu.\n");
+        exit(-1);
+    }
+}
+
+int getGreenPixel(int fileDescriptorIn){
+    int green;
+    if((read(fileDescriptorIn,&green,1))==-1){
+        perror("Nu s-a putut citi pixelul verde.\n");
+        exit(-1);
+    }
+}
+
+int getBluePixel(int fileDescriptorIn){
+    int blue;
+    if((read(fileDescriptorIn,&blue,1))==-1){
+        perror("Nu s-a putut citi pixelul albastru.\n");
+        exit(-1);
+    }
+}
+
+void rewritePixels(int fileDescriptorIn, int width, int height){
+    lseek(fileDescriptorIn,54,SEEK_SET);
+    for(int i=0;i<width;i++){
+        for(int j=0;j<height;j++){
+            int redPixel = getRedPixel(fileDescriptorIn);
+            int greenPixel = getGreenPixel(fileDescriptorIn);
+            int bluePixel = getBluePixel(fileDescriptorIn);
+            int greyPixel = 0.299*redPixel + 0.587*greenPixel + 0.114*bluePixel;
+            lseek(fileDescriptorIn,-3,SEEK_CUR);
+            write(fileDescriptorIn,&greyPixel,sizeof(greyPixel));
+            write(fileDescriptorIn,&greyPixel,sizeof(greyPixel));
+            write(fileDescriptorIn,&greyPixel,sizeof(greyPixel));
+        }
+    }
+    
+
+    
+}
+
+
 void readDirector(DIR *director,char *name, char *pathOut){
     struct dirent *informatiiDirector;
     while ((informatiiDirector=readdir(director))!=NULL)
@@ -361,29 +453,39 @@ void readDirector(DIR *director,char *name, char *pathOut){
             exit(1);
         }
         if(pid==0){
-        printf("%s\n",informatiiDirector->d_name);
-        char path[1000];
-        sprintf(path,"%s/%s",name,informatiiDirector->d_name);
-        printf("Full path %s\n", path);
-        getAtributes(path);
-        type_of_file type = typeOfFile(informatii.st_mode);
-        int numberOfLinesWritten = writeStatisticsByType(type,informatiiDirector->d_name,pathOut);
-        exit(numberOfLinesWritten);
+            printf("%s\n",informatiiDirector->d_name);
+            char path[1000];
+            sprintf(path,"%s/%s",name,informatiiDirector->d_name);
+            printf("Full path %s\n", path);
+            getAtributes(path);
+            type_of_file type = typeOfFile(informatii.st_mode);
+            int numberOfLinesWritten = writeStatisticsByType(type,path,informatiiDirector->d_name,pathOut);
+            printf("in primul proces ok: %d\n",pid);
+            exit(numberOfLinesWritten);
         }
         int status;
         pid=wait(&status);
         int cod = WEXITSTATUS(status);
         printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
-        // if(checkBMPFile(informatiiDirector->d_name)==1){
-        //     if((pid=fork())<0){
-        //         perror("Eroare proces BMP.\n");
-        //         exit(1);
-        //     }
-        //     if(pid==0){
-        //         //cod bmp
-        //         exit(0);
-        //     }
-        // }
+        if(checkBMPFile(informatiiDirector->d_name)==1){
+            if((pid=fork())<0){
+                perror("Eroare proces BMP.\n");
+                exit(1);
+            }
+            if(pid==0){
+                char path[1000];
+                sprintf(path,"%s/%s",name,informatiiDirector->d_name);
+                printf("Full path %s\n", path);
+                //int fileDescriptorIn = openFile(path);
+                //int height = getFilesHeight(fileDescriptorIn);
+                //int width = getFilesWidth(fileDescriptorIn);
+                //int pixels = height * width;
+                //printf("Nr pixeli: %d   *   %d   =   %d\n",height,width,pixels);
+                //int bitCount = getFilesBitCount(fileDescriptorIn);
+                
+                exit(0);
+            }
+        }
     }
     
 }
