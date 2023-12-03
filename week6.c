@@ -32,7 +32,7 @@ int checkBMPFile(char *name){
 }
 
 int openFile(char *name){
-    int fin=open(name, O_RDONLY | O_WRONLY, S_IRWXU);
+    int fin=open(name, O_RDWR, S_IRWXU);
     if(fin==-1){
         printf("Nu s-a putut deschide fisierul cu numele %s\n",name);
         exit(-1);
@@ -405,6 +405,7 @@ int getRedPixel(int fileDescriptorIn){
         perror("Nu s-a putut citi pixelul rosu.\n");
         exit(-1);
     }
+    return red;
 }
 
 int getGreenPixel(int fileDescriptorIn){
@@ -413,6 +414,7 @@ int getGreenPixel(int fileDescriptorIn){
         perror("Nu s-a putut citi pixelul verde.\n");
         exit(-1);
     }
+    return green;
 }
 
 int getBluePixel(int fileDescriptorIn){
@@ -421,6 +423,7 @@ int getBluePixel(int fileDescriptorIn){
         perror("Nu s-a putut citi pixelul albastru.\n");
         exit(-1);
     }
+    return blue;
 }
 
 void rewritePixels(int fileDescriptorIn, int width, int height){
@@ -476,12 +479,10 @@ void readDirector(DIR *director,char *name, char *pathOut){
                 char path[1000];
                 sprintf(path,"%s/%s",name,informatiiDirector->d_name);
                 printf("Full path %s\n", path);
-                //int fileDescriptorIn = openFile(path);
-                //int height = getFilesHeight(fileDescriptorIn);
-                //int width = getFilesWidth(fileDescriptorIn);
-                //int pixels = height * width;
-                //printf("Nr pixeli: %d   *   %d   =   %d\n",height,width,pixels);
-                //int bitCount = getFilesBitCount(fileDescriptorIn);
+                int fileDescriptorIn = openFile(path);
+                int height = getFilesHeight(fileDescriptorIn);
+                int width = getFilesWidth(fileDescriptorIn);
+                rewritePixels(fileDescriptorIn,width,height);
                 
                 exit(0);
             }
