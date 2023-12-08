@@ -1,7 +1,0 @@
-
-nume legatura: link1
-dimensiune legatura: 13
-dimensiune fisier: 196666
-drepturi de acces user legatura: rwx
-drepturi de acces grup legatura: rwx
-drepturi de acces altii legatura: rwx

@@ -9,27 +9,20 @@
 #include <time.h>
 #include <dirent.h>
 #include <sys/wait.h>
-
-struct stat informatii;
-
-typedef enum type_of_file{
-    REGULAR,DIRECTOR,LINK
-} type_of_file;
+#include <ctype.h>
 
 void testArgs(int argc, char *argv[]){
-    if (argc != 3){
+    if(argc != 4){                          // testeaza numarul argumentelor
         printf("Usage %s\n",argv[1]);
+        exit(-1);
+    }
+    if(isalpha(argv[3][0])==0){             // testeaza daca caracterul dat este unul alfanumeric
+        printf("Usage %s\n",argv[0]);
         exit(-1);
     }
 }
 
-int checkBMPFile(char *name){
-    const char *ext = strrchr(name, '.');
-    if (ext == NULL || strcmp(ext, ".bmp") != 0){
-        return 0;
-    }
-    return 1;
-}
+// Functii pentru deschidere/creare fisier
 
 int openFile(char *name){
     int fin=open(name, O_RDWR, S_IRWXU);
@@ -51,18 +44,17 @@ int createFile(char *name, char *path){
     return fout;
 }
 
-/*int writeInFile(int fileDescriptor, char *buffer, int charBytes){
-    int w = write(fileDescriptor,buffer,charBytes);
-    if( w == -1 ){
-        perror("Nu s-a putut scrie numele fisierului.\n");
-        exit(-1);
+// Functie pentru verificare fisier .bmp
+
+int checkBMPFile(char *name){
+    const char *ext = strrchr(name, '.');
+    if (ext == NULL || strcmp(ext, ".bmp") != 0){
+        return 0;
     }
-    return w;
+    return 1;
 }
 
-int writeInBuffer(char *buffer, char *message, char *s){
-    return sprintf(buffer,message,s);
-}*/
+// Functii de scriere in fisierul de statistica si de aflare a anumitor informatii despre fisier
 
 void writeName(int fileDescriptorOut, char *nume, char *type){
     char buffer[100];
@@ -76,7 +68,6 @@ void writeName(int fileDescriptorOut, char *nume, char *type){
 int getFilesWidth(int fileDescriptorIn){
     int width;
     lseek(fileDescriptorIn,18, SEEK_SET);
-    printf("fd:%d\n",fileDescriptorIn);
     if(read(fileDescriptorIn, &width, 4)==-1){
         perror("Nu s-a realizat corect citirea inaltimii.\n");
         exit(-1);
@@ -94,17 +85,6 @@ int getFilesHeight(int fileDescriptorIn){
     }
     lseek(fileDescriptorIn,0,SEEK_SET);
     return height;
-}
-
-int getFilesBitCount(int fileDescriptorIn){
-    int bitCount;
-    lseek(fileDescriptorIn,28,SEEK_SET);
-    if(read(fileDescriptorIn,&bitCount,2)==-1){
-        perror("Nu s-a realizat corect citirea bitCount-ului.\n");
-        exit(-1);
-    }
-    lseek(fileDescriptorIn,0,SEEK_SET);
-    return bitCount;
 }
 
 void writeWidth(int fileDescriptorIn, int fileDescriptorOut){
@@ -233,6 +213,18 @@ void writeOthersAccessRights(int fileDescriptorOut, mode_t mode, char *type){
         exit(-1);
     }
 }
+
+void writeNewLine(int fd) {
+    if(write(fd, "\n", 1) == -1) {
+        perror("Nu s-a putut scrie newline.\n");
+        exit(-1);
+    }
+}
+
+typedef enum type_of_file{
+    REGULAR,DIRECTOR,LINK
+} type_of_file;
+
 type_of_file typeOfFile(mode_t mode){
     if(S_ISREG(mode)!=0) return REGULAR; //regular file
     if(S_ISDIR(mode)!=0) return DIRECTOR; // director
@@ -242,21 +234,15 @@ type_of_file typeOfFile(mode_t mode){
     
 }
 
-void writeNewLine(int fd) {
-    if(write(fd, "\n", 1) == -1) {
-        perror("Nu s-a putut scrie newline.\n");
-        exit(-1);
-    }
-}
+// Functia de scriere in statistica.txt
 
-void resetFile(char *name) {
-    int fdStat = 0;
-    if((fdStat = creat(name, S_IRUSR | S_IWUSR | S_IXUSR)) == -1) {
-        perror("Fisierul nu a putut fi resetat.\n");
-        exit(-1);
-    }
-    if(close(fdStat) == -1) {
-        perror("Fisierul nu a putut fi inchis.\n");
+struct stat informatiiFisier;
+
+void getAtributes(char *name){
+    int stat_out=lstat(name,&informatiiFisier);
+    if(stat_out==-1)
+    {
+        printf("S-a produs o eroare la aflarea atributelor fisierului:%s.\n",name);
         exit(-1);
     }
 }
@@ -269,22 +255,16 @@ int writeStatisticsByType(type_of_file type, char *pathIn, char *name, char *pat
             char nameOfFile[100];
             sprintf(nameOfFile,"%s_%s",name,"statistica.txt");
             int fileDescriptorOut = createFile(nameOfFile,pathOut);
-            //resetFile(nameOfFile);
             int fileDescriptorIn = openFile(pathIn);
             writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"fisier");
-            if(checkBMPFile(name)==1){
-                writeWidth(fileDescriptorIn, fileDescriptorOut);
-                writeHeight(fileDescriptorIn, fileDescriptorOut);
-                numberOfLines+=2;
-            }
-            writeSize(fileDescriptorOut,  informatii.st_size," fisier");
-            writeUserId(fileDescriptorOut, informatii.st_uid);
-            writeTime(fileDescriptorOut, informatii.st_mtime);
-            writeHardLinks(fileDescriptorOut,informatii.st_nlink);
-            writeUserAccessRights(fileDescriptorOut,informatii.st_mode,"");
-            writeGroupAccessRights(fileDescriptorOut,informatii.st_mode,"");
-            writeOthersAccessRights(fileDescriptorOut,informatii.st_mode,"");
+            writeSize(fileDescriptorOut,  informatiiFisier.st_size," fisier");
+            writeUserId(fileDescriptorOut, informatiiFisier.st_uid);
+            writeTime(fileDescriptorOut, informatiiFisier.st_mtime);
+            writeHardLinks(fileDescriptorOut,informatiiFisier.st_nlink);
+            writeUserAccessRights(fileDescriptorOut,informatiiFisier.st_mode,"");
+            writeGroupAccessRights(fileDescriptorOut,informatiiFisier.st_mode,"");
+            writeOthersAccessRights(fileDescriptorOut,informatiiFisier.st_mode,"");
             if(close(fileDescriptorIn)!=0){
                 perror("Nu s-a putut inchide fisierul.\n");
                 exit(-1);
@@ -300,13 +280,12 @@ int writeStatisticsByType(type_of_file type, char *pathIn, char *name, char *pat
             char nameOfFile[100];
             sprintf(nameOfFile,"%s_%s",name,"statistica.txt");
             int fileDescriptorOut = createFile(nameOfFile,pathOut);
-            //resetFile(nameOfFile);
             writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"director");
-            writeUserId(fileDescriptorOut, informatii.st_uid);
-            writeUserAccessRights(fileDescriptorOut,informatii.st_mode,"");
-            writeGroupAccessRights(fileDescriptorOut,informatii.st_mode,"");
-            writeOthersAccessRights(fileDescriptorOut,informatii.st_mode,"");
+            writeUserId(fileDescriptorOut, informatiiFisier.st_uid);
+            writeUserAccessRights(fileDescriptorOut,informatiiFisier.st_mode,"");
+            writeGroupAccessRights(fileDescriptorOut,informatiiFisier.st_mode,"");
+            writeOthersAccessRights(fileDescriptorOut,informatiiFisier.st_mode,"");
             if(close(fileDescriptorOut)!=0){
                 perror("Nu s-a putut inchide fisierul.\n");
                 exit(-1);
@@ -318,7 +297,6 @@ int writeStatisticsByType(type_of_file type, char *pathIn, char *name, char *pat
             char nameOfFile[100];
             sprintf(nameOfFile,"%s_%s",name,"statistica.txt");
             int fileDescriptorOut = createFile(nameOfFile,pathOut);
-            //resetFile(nameOfFile);
             writeNewLine(fileDescriptorOut);
             writeName(fileDescriptorOut, name,"legatura");
             struct stat informatiiFisierTarget;
@@ -328,11 +306,11 @@ int writeStatisticsByType(type_of_file type, char *pathIn, char *name, char *pat
                 perror("S-a produs o eroare la aflarea atributelor fisierului.\n");
                 exit(-1);
             }
-            writeSize(fileDescriptorOut,informatii.st_size," legatura");
+            writeSize(fileDescriptorOut,informatiiFisier.st_size," legatura");
             writeSize(fileDescriptorOut,informatiiFisierTarget.st_size," fisier");
-            writeUserAccessRights(fileDescriptorOut,informatii.st_mode," legatura");
-            writeGroupAccessRights(fileDescriptorOut,informatii.st_mode," legatura");
-            writeOthersAccessRights(fileDescriptorOut,informatii.st_mode," legatura");
+            writeUserAccessRights(fileDescriptorOut,informatiiFisier.st_mode," legatura");
+            writeGroupAccessRights(fileDescriptorOut,informatiiFisier.st_mode," legatura");
+            writeOthersAccessRights(fileDescriptorOut,informatiiFisier.st_mode," legatura");
             if(close(fileDescriptorOut)!=0){
                 perror("Nu s-a putut inchide fisierul.\n");
                 exit(-1);
@@ -348,6 +326,8 @@ int writeStatisticsByType(type_of_file type, char *pathIn, char *name, char *pat
     return numberOfLines;
 }
 
+// Functia de deschidere a directorului
+
 DIR *openDirector(char *path){
     DIR *director;
     if((director=opendir(path))==NULL){
@@ -357,13 +337,17 @@ DIR *openDirector(char *path){
     return director;
 }
 
-void getAtributes(char *name){
-    int stat_out=lstat(name,&informatii);
-    if(stat_out==-1)
-    {
-        printf("S-a produs o eroare la aflarea atributelor fisierului:%s.\n",name);
+// Functii pentru convertirea imaginii in tonuri de gri
+
+int getFilesBitCount(int fileDescriptorIn){
+    int bitCount;
+    lseek(fileDescriptorIn,28,SEEK_SET);
+    if(read(fileDescriptorIn,&bitCount,2)==-1){
+        perror("Nu s-a realizat corect citirea bitCount-ului.\n");
         exit(-1);
     }
+    lseek(fileDescriptorIn,0,SEEK_SET);
+    return bitCount;
 }
 
 int getRedPixel(int fileDescriptorIn){
@@ -407,50 +391,51 @@ void rewritePixels(int fileDescriptorIn, int width, int height){
             write(fileDescriptorIn,&greyPixel,1);
         }
     }
-    
+    lseek(fileDescriptorIn,0,SEEK_SET);
 
     
 }
 
+void closePipeReadEnd(int pipeFileDescriptor[]){
+    if(close(pipeFileDescriptor[0])==-1){               // Inchiderea capatului de citire
+        perror("Nu s-a putut inchide capatul de citire al pipe-ului.\n");
+         exit(-1);
+    }
+}
 
-void readDirector(DIR *director,char *name, char *pathOut){
+void closePipeWriteEnd(int pipeFileDescriptor[]){
+    if(close(pipeFileDescriptor[1])==-1){               // Inchiderea capatului de scriere
+        perror("Nu s-a putut inchide capatul de scriere al pipe-ului.\n");
+         exit(-1);
+    }
+}
+
+// Functia de parcurgere a directorului de intrare
+
+void readDirector(DIR *director,char *name, char *pathOut, char *argument){
     struct dirent *informatiiDirector;
     while ((informatiiDirector=readdir(director))!=NULL)
     {
         pid_t pid;
-        if((pid=fork())<0){
-            perror("Eroare");
-            exit(1);
-        }
-        if(pid==0){
-            printf("%s\n",informatiiDirector->d_name);
-            char path[1000];
-            sprintf(path,"%s/%s",name,informatiiDirector->d_name);
-            printf("Full path %s\n", path);
-            getAtributes(path);
-            type_of_file type = typeOfFile(informatii.st_mode);
-            int numberOfLinesWritten = writeStatisticsByType(type,path,informatiiDirector->d_name,pathOut);
-            printf("in primul proces ok: %d\n",pid);
-            exit(numberOfLinesWritten);
-        }
-        int status;
-        pid=wait(&status);
-        int cod = WEXITSTATUS(status);
-        printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
-        if(checkBMPFile(informatiiDirector->d_name)==1){
-            if((pid=fork())<0){
+        int status, cod;
+        if(checkBMPFile(informatiiDirector->d_name)==1){        // Daca in directorul parcurs exista un fisier .bmp
+            if((pid=fork())<0){                                 // Se creeaza un proces fiu
                 perror("Eroare proces BMP.\n");
                 exit(1);
             }
-            if(pid==0){
+            if(pid==0){                                         // Interiorul procesului fiu care realizeaza convertirea imaginii .bmp in tonuri de gri
                 char path[1000];
                 sprintf(path,"%s/%s",name,informatiiDirector->d_name);
-                printf("Full path %s\n", path);
+                //printf("Full path %s\n", path);
                 int fileDescriptorIn = openFile(path);
-                //if(getFilesBitCount(fileDescriptorIn)!=24){
-                //    perror("Nu se poate converti aceasta imagine.\n");
-                //    exit(-1);
-                //}
+                if(getFilesBitCount(fileDescriptorIn)!=24){
+                    perror("Nu se poate converti aceasta imagine.\n");
+                    if(close(fileDescriptorIn)==-1){
+                    perror("Nu s-a putut inchide fisierul.\n");
+                    exit(-1);
+                    }
+                    exit(-1);
+                }
                 int height = getFilesHeight(fileDescriptorIn);
                 int width = getFilesWidth(fileDescriptorIn);
                 rewritePixels(fileDescriptorIn,width,height);
@@ -459,18 +444,98 @@ void readDirector(DIR *director,char *name, char *pathOut){
                     exit(-1);
                 }
                 exit(0);
+            }// incheiere procesului fiu care se ocupa de fisierele cu extensia .bmp
+            pid=wait(&status);
+            cod = WEXITSTATUS(status);
+            printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
+        }
+        else{
+            int pipeFileDescriptor[2];
+            if(pipe(pipeFileDescriptor)<0)                          // Crearea pipe-ului
+	        {
+	            perror("Eroare la crearea pipe-ului\n");
+	            exit(1);
+	        }
+
+            if((pid=fork())<0){                                     // Crearea primului proces fiu pentru fisierele obisnuite 
+                perror("Eroare");
+                exit(1);
             }
+            if(pid==0){                                             // Interiorul procesului fiu care se ocupa de scrierea fisierelor de statistica
+                closePipeReadEnd(pipeFileDescriptor);
+                char path[1000];
+                sprintf(path,"%s/%s",name,informatiiDirector->d_name);
+                getAtributes(path);
+                type_of_file type = typeOfFile(informatiiFisier.st_mode);
+                int numberOfLinesWritten = writeStatisticsByType(type,path,informatiiDirector->d_name,pathOut);
+                if(typeOfFile(informatiiFisier.st_mode)==REGULAR){
+                    dup2(pipeFileDescriptor[1],1);                      // Redirectarea iesirii standard a programului la capatul de scriere al pipe-ului
+                    if (execlp("cat", "cat", path, NULL) == -1) {       // generarea continutului fisierului, transmis prin pipe catre al doilea proces
+                        perror("execvp");
+                        exit(EXIT_FAILURE);
+                    }
+                    
+                }
+                closePipeWriteEnd(pipeFileDescriptor);
+                exit(numberOfLinesWritten); // daca folosesc exec, codul dupa el nu se mai ruleaza, doar in caz de eroare.
+            }// incheierea procesului fiu
+        // Proces parinte care primeste numarul de linii scrise in fiecare dintre procesele fiu de mai sus
+            pid=wait(&status);
+            cod = WEXITSTATUS(status);
+            printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
+            int pipeFileDescriptorPropozitii[2];
+            int contorPropozitii=0;
+            if(pipe(pipeFileDescriptorPropozitii)<0)                          // Crearea pipe-ului
+	        {
+	            perror("Eroare la crearea pipe-ului\n");
+	            exit(1);
+	        }
+
+            closePipeWriteEnd(pipeFileDescriptorPropozitii);
+
+            if ((pid=fork())<0){                                    // Crearea celui de al doilea proces fiu pentru fisierele obisnuite
+                perror("Eroare");
+                exit(1);
+            }
+            if(pid==0){                                             // Interiorul celui de-al doilea proces fiu care se ocupa de numararea prop corecte
+                closePipeWriteEnd(pipeFileDescriptor);
+                closePipeReadEnd(pipeFileDescriptorPropozitii);
+                dup2(pipeFileDescriptorPropozitii[1],1);                      // Redirectarea iesirii standard a programului la capatul de scriere al pipe-ului
+                dup2(pipeFileDescriptor[0],0);                                // Redirectarea intrarii standard la capatul de citire al pipe-ului
+
+                if (execlp("bash", "bash", "script.sh", argument, NULL) == -1) {       // generarea continutului fisierului, transmis prin pipe catre al doilea proces
+                    perror("execvp");
+                    exit(EXIT_FAILURE);
+                }
+                closePipeWriteEnd(pipeFileDescriptorPropozitii);
+            }// incheiere proces fiu
+            pid=wait(&status);
+            cod = WEXITSTATUS(status);
+            printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
+
+            int propozitii;
+            dup2(pipeFileDescriptorPropozitii[0],0);
+            
+            int result = scanf("%d",&propozitii);
+
+            printf("%d",propozitii);
+            contorPropozitii+=propozitii;
+            
+            closePipeWriteEnd(pipeFileDescriptor);
+            closePipeWriteEnd(pipeFileDescriptorPropozitii);
+            closePipeReadEnd(pipeFileDescriptor);
+            closePipeReadEnd(pipeFileDescriptorPropozitii);
+            printf("Au fost identificate in total %d propozitii corecte care contin caracterul %s.\n",contorPropozitii,argument);
         }
     }
     
 }
 
-int main(int argc,char *argv[]){
+
+int main(int argc, char *argv[]){
     testArgs(argc,argv);
-    
     DIR *director = openDirector(argv[1]);
 
-    readDirector(director,argv[1],argv[2]);
-
+    readDirector(director,argv[1],argv[2],argv[3]);
     return 0;
 }
