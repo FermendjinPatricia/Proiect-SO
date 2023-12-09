@@ -1,7 +1,7 @@
 out.exe: stat
-	gcc -Wall -o test  proiect.c
+	gcc -Wall -o proiect  proiect.c
 
 stat:
-	rm -r directorOut
-	mkdir directorOut
+	rm -r directorIesire
+	mkdir directorIesire
 	

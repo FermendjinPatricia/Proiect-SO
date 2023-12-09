@@ -415,10 +415,12 @@ void closePipeWriteEnd(int pipeFileDescriptor[]){
 
 void readDirector(DIR *director,char *name, char *pathOut, char *argument){
     struct dirent *informatiiDirector;
+    int contorPropozitii=0;
     while ((informatiiDirector=readdir(director))!=NULL)
     {
         pid_t pid;
         int status, cod;
+        int propozitii=0;
         if(checkBMPFile(informatiiDirector->d_name)==1){        // Daca in directorul parcurs exista un fisier .bmp
             if((pid=fork())<0){                                 // Se creeaza un proces fiu
                 perror("Eroare proces BMP.\n");
@@ -451,7 +453,7 @@ void readDirector(DIR *director,char *name, char *pathOut, char *argument){
             printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
         }
         else{
-            printf("Numele fisierului din director:     %s.\n",informatiiDirector->d_name);
+            //printf("Numele fisierului din director:     %s.\n",informatiiDirector->d_name);
             int pipeFileDescriptor[2];
             if(pipe(pipeFileDescriptor)<0)                          // Crearea pipe-ului
 	        {
@@ -498,17 +500,8 @@ void readDirector(DIR *director,char *name, char *pathOut, char *argument){
             printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
             
             closePipeWriteEnd(pipeFileDescriptor);
-            
-            /*int fd = fileno(stdout); // Obține descriptorul de fișier pentru stdout
-
-            if (isatty(fd)) {
-                printf("Ieșirea standard nu este redirecționată către un pipe.\n");
-            } else {
-                printf("Ieșirea standard este redirecționată către un pipe sau alt descriptor de fișier.\n");
-            }*/
 
             int pipeFileDescriptorPropozitii[2];
-            int contorPropozitii=0;
             if(pipe(pipeFileDescriptorPropozitii)<0)                          // Crearea pipe-ului
 	        {
 	            perror("Eroare la crearea pipe-ului\n");
@@ -521,7 +514,6 @@ void readDirector(DIR *director,char *name, char *pathOut, char *argument){
             }
             if(pid==0){                                             // Interiorul celui de-al doilea proces fiu care se ocupa de numararea prop corecte
                 closePipeReadEnd(pipeFileDescriptorPropozitii);
-
                                      
                 if((dup2(pipeFileDescriptor[0],0)) == -1){                                // Redirectarea intrarii standard la capatul de citire al pipe-ului
                     perror("Nu s-a putut redirecta intrarea standard la primul pipe\n");
@@ -544,29 +536,26 @@ void readDirector(DIR *director,char *name, char *pathOut, char *argument){
 
             closePipeWriteEnd(pipeFileDescriptorPropozitii);
             closePipeReadEnd(pipeFileDescriptor);
-
-
-            int propozitii;
+            
             if((dup2(pipeFileDescriptorPropozitii[0],0)) == -1){
                 perror("Nu s-a putut redirecta intrarea standard la al doilea pipe\n");
                 exit(-1);
             }
             
-            int result = scanf("%d",&propozitii);
+            scanf("%d",&propozitii);
 
-            printf("%d",propozitii);
-            contorPropozitii+=propozitii;
-            
             closePipeReadEnd(pipeFileDescriptorPropozitii);
-            printf("Au fost identificate in total %d propozitii corecte care contin caracterul %s.\n",contorPropozitii,argument);
         }
+        contorPropozitii+=propozitii;
     }
-    
+    printf("Au fost identificate in total %d propozitii corecte care contin caracterul %s.\n",contorPropozitii,argument);
 }
+
 
 
 int main(int argc, char *argv[]){
     testArgs(argc,argv);
+
     DIR *director = openDirector(argv[1]);
 
     readDirector(director,argv[1],argv[2],argv[3]);
