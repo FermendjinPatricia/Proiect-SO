@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <sys/wait.h>
 #include <ctype.h>
+#include <fcntl.h>
 
 void testArgs(int argc, char *argv[]){
     if(argc != 4){                          // testeaza numarul argumentelor
@@ -450,6 +451,7 @@ void readDirector(DIR *director,char *name, char *pathOut, char *argument){
             printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
         }
         else{
+            printf("Numele fisierului din director:     %s.\n",informatiiDirector->d_name);
             int pipeFileDescriptor[2];
             if(pipe(pipeFileDescriptor)<0)                          // Crearea pipe-ului
 	        {
@@ -463,26 +465,48 @@ void readDirector(DIR *director,char *name, char *pathOut, char *argument){
             }
             if(pid==0){                                             // Interiorul procesului fiu care se ocupa de scrierea fisierelor de statistica
                 closePipeReadEnd(pipeFileDescriptor);
+                
                 char path[1000];
                 sprintf(path,"%s/%s",name,informatiiDirector->d_name);
                 getAtributes(path);
                 type_of_file type = typeOfFile(informatiiFisier.st_mode);
                 int numberOfLinesWritten = writeStatisticsByType(type,path,informatiiDirector->d_name,pathOut);
+
+
                 if(typeOfFile(informatiiFisier.st_mode)==REGULAR){
-                    dup2(pipeFileDescriptor[1],1);                      // Redirectarea iesirii standard a programului la capatul de scriere al pipe-ului
+                    if((dup2(pipeFileDescriptor[1],1)) == -1){          // Redirectarea iesirii standard a programului la capatul de scriere al pipe-ului
+                        perror("Nu s-a putut redirecta iesirea standard la primul pipe.\n");
+                        exit(-1);
+                    }                      
                     if (execlp("cat", "cat", path, NULL) == -1) {       // generarea continutului fisierului, transmis prin pipe catre al doilea proces
                         perror("execvp");
                         exit(EXIT_FAILURE);
                     }
                     
                 }
-                closePipeWriteEnd(pipeFileDescriptor);
-                exit(numberOfLinesWritten); // daca folosesc exec, codul dupa el nu se mai ruleaza, doar in caz de eroare.
+                else{
+                    printf("Nu se poate extrage continutul fisierului.\n");
+                    exit(numberOfLinesWritten);
+                }
+                // Daca folosesc exec, codul dupa el nu se mai ruleaza, doar in caz de eroare.
+                //closePipeWriteEnd(pipeFileDescriptor);
+                //exit(numberOfLinesWritten); 
             }// incheierea procesului fiu
         // Proces parinte care primeste numarul de linii scrise in fiecare dintre procesele fiu de mai sus
             pid=wait(&status);
             cod = WEXITSTATUS(status);
             printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
+            
+            closePipeWriteEnd(pipeFileDescriptor);
+            
+            /*int fd = fileno(stdout); // Obține descriptorul de fișier pentru stdout
+
+            if (isatty(fd)) {
+                printf("Ieșirea standard nu este redirecționată către un pipe.\n");
+            } else {
+                printf("Ieșirea standard este redirecționată către un pipe sau alt descriptor de fișier.\n");
+            }*/
+
             int pipeFileDescriptorPropozitii[2];
             int contorPropozitii=0;
             if(pipe(pipeFileDescriptorPropozitii)<0)                          // Crearea pipe-ului
@@ -491,39 +515,48 @@ void readDirector(DIR *director,char *name, char *pathOut, char *argument){
 	            exit(1);
 	        }
 
-            closePipeWriteEnd(pipeFileDescriptorPropozitii);
-
             if ((pid=fork())<0){                                    // Crearea celui de al doilea proces fiu pentru fisierele obisnuite
                 perror("Eroare");
                 exit(1);
             }
             if(pid==0){                                             // Interiorul celui de-al doilea proces fiu care se ocupa de numararea prop corecte
-                closePipeWriteEnd(pipeFileDescriptor);
                 closePipeReadEnd(pipeFileDescriptorPropozitii);
-                dup2(pipeFileDescriptorPropozitii[1],1);                      // Redirectarea iesirii standard a programului la capatul de scriere al pipe-ului
-                dup2(pipeFileDescriptor[0],0);                                // Redirectarea intrarii standard la capatul de citire al pipe-ului
+
+                                     
+                if((dup2(pipeFileDescriptor[0],0)) == -1){                                // Redirectarea intrarii standard la capatul de citire al pipe-ului
+                    perror("Nu s-a putut redirecta intrarea standard la primul pipe\n");
+                    exit(-1);
+                }
+
+                if((dup2(pipeFileDescriptorPropozitii[1],1)) == -1){        // Redirectarea iesirii standard a programului la capatul de scriere al pipe-ului
+                    perror("Nu s-a putut redirecta iesirea standard la al doilea pipe\n");
+                    exit(-1);
+                } 
 
                 if (execlp("bash", "bash", "script.sh", argument, NULL) == -1) {       // generarea continutului fisierului, transmis prin pipe catre al doilea proces
                     perror("execvp");
                     exit(EXIT_FAILURE);
                 }
-                closePipeWriteEnd(pipeFileDescriptorPropozitii);
             }// incheiere proces fiu
             pid=wait(&status);
             cod = WEXITSTATUS(status);
             printf("S-a incheiat procesul cu pid-ul %d si codul %d.\n",pid,cod);
 
+            closePipeWriteEnd(pipeFileDescriptorPropozitii);
+            closePipeReadEnd(pipeFileDescriptor);
+
+
             int propozitii;
-            dup2(pipeFileDescriptorPropozitii[0],0);
+            if((dup2(pipeFileDescriptorPropozitii[0],0)) == -1){
+                perror("Nu s-a putut redirecta intrarea standard la al doilea pipe\n");
+                exit(-1);
+            }
             
             int result = scanf("%d",&propozitii);
 
             printf("%d",propozitii);
             contorPropozitii+=propozitii;
             
-            closePipeWriteEnd(pipeFileDescriptor);
-            closePipeWriteEnd(pipeFileDescriptorPropozitii);
-            closePipeReadEnd(pipeFileDescriptor);
             closePipeReadEnd(pipeFileDescriptorPropozitii);
             printf("Au fost identificate in total %d propozitii corecte care contin caracterul %s.\n",contorPropozitii,argument);
         }
